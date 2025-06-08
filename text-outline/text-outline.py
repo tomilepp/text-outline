@@ -60,6 +60,7 @@ class Outline(Gimp.PlugIn):
         background_color = config.get_property("background_color")
         text = config.get_property("text")
         font = config.get_property("font")
+        size = config.get_property("size")
 
         Gimp.context_push()
         image.undo_group_start()
@@ -68,12 +69,13 @@ class Outline(Gimp.PlugIn):
         text_layer = Gimp.TextLayer.new(image, text, font, 100, Gimp.Unit.pixel())
 
         image.insert_layer(text_layer, None, 0)
+        text_layer.set_offsets(size*2, size*2)
         path = Gimp.Path.new_from_text_layer(image, text_layer)
         image.insert_path(path, None, 0)
         image.select_item(Gimp.ChannelOps.ADD, path)
 
         sel = image.get_selection()
-        sel.grow(image, 10)
+        sel.grow(image, size)
 
         width = text_layer.get_width()
         height = text_layer.get_height()
@@ -81,13 +83,14 @@ class Outline(Gimp.PlugIn):
         outline_layer = Gimp.Layer.new(
             image,
             "text outline",
-            width,
-            height,
+            width+4*size,
+            height+4*size,
             Gimp.ImageType.RGBA_IMAGE,
             100,
             Gimp.LayerMode.NORMAL,
         )
         image.insert_layer(outline_layer, None, 1)
+        #outline_layer.set_offsets(offset_x-2*size, offset_y-2*size)
         image.set_selected_layers([outline_layer])
         Gimp.context_set_foreground(background_color)
         outline_layer.edit_fill(0)
@@ -152,6 +155,8 @@ class Outline(Gimp.PlugIn):
             True,
             GObject.ParamFlags.READWRITE,
         )
+        procedure.add_int_argument("size", "Size", "Size", 0, 100, 3, GObject.ParamFlags.READWRITE)
+        
 
         return procedure
 
