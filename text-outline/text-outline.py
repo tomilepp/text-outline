@@ -61,6 +61,9 @@ class Outline(Gimp.PlugIn):
         text = config.get_property("text")
         font = config.get_property("font")
         size = config.get_property("size")
+        blur = config.get_property("blur")
+        blur_amount = config.get_property("blur_amount")
+
 
         Gimp.context_push()
         image.undo_group_start()
@@ -69,7 +72,7 @@ class Outline(Gimp.PlugIn):
         text_layer = Gimp.TextLayer.new(image, text, font, 100, Gimp.Unit.pixel())
 
         image.insert_layer(text_layer, None, 0)
-        text_layer.set_offsets(size*2, size*2)
+        text_layer.set_offsets(size * 2, size * 2)
         path = Gimp.Path.new_from_text_layer(image, text_layer)
         image.insert_path(path, None, 0)
         image.select_item(Gimp.ChannelOps.ADD, path)
@@ -83,17 +86,28 @@ class Outline(Gimp.PlugIn):
         outline_layer = Gimp.Layer.new(
             image,
             "text outline",
-            width+4*size,
-            height+4*size,
+            width + 4 * size,
+            height + 4 * size,
             Gimp.ImageType.RGBA_IMAGE,
             100,
             Gimp.LayerMode.NORMAL,
         )
         image.insert_layer(outline_layer, None, 1)
-        #outline_layer.set_offsets(offset_x-2*size, offset_y-2*size)
+        # outline_layer.set_offsets(offset_x-2*size, offset_y-2*size)
         image.set_selected_layers([outline_layer])
         Gimp.context_set_foreground(background_color)
         outline_layer.edit_fill(0)
+        Gimp.Selection.none(image)
+
+        # blur outline
+        if blur:
+            filter = Gimp.DrawableFilter.new(outline_layer, "gegl:gaussian-blur")
+            conf = filter.get_config()
+            conf.set_property("std-dev-x", blur_amount)
+            conf.set_property("std-dev-y", blur_amount)
+            conf.set_property("clip-extent", 0)
+            filter.update()
+            outline_layer.append_filter(filter)
 
         Gimp.displays_flush()
 
@@ -110,6 +124,7 @@ class Outline(Gimp.PlugIn):
         return ["plug-in-text-outline"]
 
     def do_create_procedure(self, name):
+
         Gegl.init(None)
         _font_color = Gegl.Color.new("black")
         _background_color = Gegl.Color.new("white")
@@ -155,8 +170,21 @@ class Outline(Gimp.PlugIn):
             True,
             GObject.ParamFlags.READWRITE,
         )
-        procedure.add_int_argument("size", "Size", "Size", 0, 100, 3, GObject.ParamFlags.READWRITE)
-        
+        procedure.add_int_argument(
+            "size", "Size", "Size", 0, 100, 3, GObject.ParamFlags.READWRITE
+        )
+        procedure.add_boolean_argument(
+            "blur", "Blur", "Blur", False, GObject.ParamFlags.READWRITE
+        )
+        procedure.add_double_argument(
+            "blur_amount",
+            "Blur Amount",
+            "Blur Amount",
+            0.0,
+            100.0,
+            2.0,
+            GObject.ParamFlags.READWRITE,
+        )
 
         return procedure
 
